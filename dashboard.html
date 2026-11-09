@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Freelance Dashboard</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>tailwind.config={darkMode:'media'}</script>
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-router-dom@5.3.4/umd/react-router-dom.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.0/babel.min.js"></script>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>
+</head>
+<body class="bg-amber-50 text-neutral-900 dark:bg-neutral-950 dark:text-amber-50">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+const { HashRouter, Route, Switch, Redirect, NavLink } = ReactRouterDOM;
+
+/* ---------- mock data ---------- */
+const projects = [
+  { id: 1, name: 'Brand identity', client: 'Nile Coffee', status: 'In progress', due: '2026-11-20' },
+  { id: 2, name: 'Portfolio website', client: 'Dina Hassan', status: 'Review', due: '2026-11-14' },
+  { id: 3, name: 'Mobile app UI', client: 'FitTrack', status: 'In progress', due: '2026-12-02' },
+  { id: 4, name: 'Packaging design', client: 'Baladi Foods', status: 'Completed', due: '2026-10-28' },
+  { id: 5, name: 'Landing page copy', client: 'Relay', status: 'Not started', due: '2026-12-10' },
+];
+const activity = [
+  'Nile Coffee approved the logo concept',
+  'Invoice #1042 was paid ($850)',
+  'New message from Dina Hassan',
+  'FitTrack uploaded new wireframes',
+  'Baladi Foods marked the project complete',
+];
+const earnings = [1200, 1850, 1400, 2300, 2100, 2750];
+const months = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'];
+
+const statusStyle = {
+  'In progress': 'bg-amber-200 text-amber-900',
+  'Review': 'bg-sky-200 text-sky-900',
+  'Completed': 'bg-green-200 text-green-900',
+  'Not started': 'bg-neutral-200 text-neutral-800',
+};
+
+/* ---------- small components ---------- */
+function Card({ title, children, className = '' }) {
+  return (
+    <div className={'rounded-xl border-2 border-neutral-900 dark:border-amber-400 bg-white dark:bg-neutral-900 p-5 ' + className}>
+      {title && <h2 className="font-semibold mb-3">{title}</h2>}
+      {children}
+    </div>
+  );
+}
+function Stat({ label, value }) {
+  return (
+    <Card>
+      <div className="text-sm text-neutral-600 dark:text-neutral-400">{label}</div>
+      <div className="text-3xl font-bold mt-1">{value}</div>
+    </Card>
+  );
+}
+
+function ChartBox({ type, labels, data, label }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const chart = new Chart(ref.current, {
+      type,
+      data: {
+        labels,
+        datasets: [{
+          label, data,
+          backgroundColor: ['#f7b500', '#111111', '#8a6a00', '#d9d0b4'],
+          borderColor: dark ? '#f7b500' : '#111', borderWidth: 2,
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { display: type === 'doughnut', labels: { color: dark ? '#fff5d6' : '#111' } } },
+        scales: type === 'bar' ? {
+          x: { ticks: { color: dark ? '#fff5d6' : '#111' } },
+          y: { ticks: { color: dark ? '#fff5d6' : '#111' } },
+        } : {},
+      },
+    });
+    return () => chart.destroy();
+  }, []);
+  return <div className="h-64"><canvas ref={ref}></canvas></div>;
+}
+
+/* ---------- pages ---------- */
+function Overview() {
+  const total = earnings.reduce((a, b) => a + b, 0);
+  const due = projects.filter(p => p.status !== 'Completed').length;
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+        <Stat label="Total projects" value={projects.length} />
+        <Stat label="Earnings (6 months)" value={'$' + total.toLocaleString()} />
+        <Stat label="Tasks due" value={due} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card title="Monthly earnings" className="lg:col-span-2">
+          <ChartBox type="bar" labels={months} data={earnings} label="Earnings ($)" />
+        </Card>
+        <Card title="Tasks by type">
+          <ChartBox type="doughnut" labels={['Design', 'Development', 'Writing', 'Admin']} data={[12, 9, 5, 4]} label="Tasks" />
+        </Card>
+      </div>
+      <Card title="Recent activity">
+        <ul className="divide-y divide-neutral-200 dark:divide-neutral-700">
+          {activity.map((a, i) => <li key={i} className="py-2 text-sm">{a}</li>)}
+        </ul>
+      </Card>
+    </div>
+  );
+}
+
+function Projects() {
+  const [filter, setFilter] = useState('All');
+  const list = filter === 'All' ? projects : projects.filter(p => p.status === filter);
+  return (
+    <Card title="Client projects">
+      <div className="flex flex-wrap gap-2 mb-4">
+        {['All', 'In progress', 'Review', 'Completed', 'Not started'].map(s => (
+          <button key={s} onClick={() => setFilter(s)}
+            className={'px-3 py-1 rounded-full border-2 text-sm ' + (filter === s ? 'bg-amber-400 border-neutral-900 text-neutral-900' : 'border-neutral-400')}>
+            {s}
+          </button>
+        ))}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead><tr className="border-b-2 border-neutral-900 dark:border-amber-400">
+            <th className="py-2 pr-4">Project</th><th className="pr-4">Client</th><th className="pr-4">Status</th><th>Deadline</th>
+          </tr></thead>
+          <tbody>
+            {list.map(p => (
+              <tr key={p.id} className="border-b border-neutral-200 dark:border-neutral-700">
+                <td className="py-3 pr-4 font-medium">{p.name}</td>
+                <td className="pr-4">{p.client}</td>
+                <td className="pr-4"><span className={'px-2 py-0.5 rounded-full text-xs font-semibold ' + statusStyle[p.status]}>{p.status}</span></td>
+                <td>{p.due}</td>
+              </tr>
+            ))}
+            {list.length === 0 && <tr><td colSpan="4" className="py-6 text-center text-neutral-500">No projects with this status.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function Profile() {
+  const [form, setForm] = useState({ name: 'Ahmed Samir', email: 'ahmed@example.com', password: '' });
+  const [saved, setSaved] = useState(false);
+  const set = k => e => { setForm({ ...form, [k]: e.target.value }); setSaved(false); };
+  const input = 'w-full rounded-lg border-2 border-neutral-900 dark:border-amber-400 bg-transparent px-3 py-2';
+  return (
+    <Card title="Profile settings" className="max-w-xl">
+      <div className="space-y-4">
+        <label className="block text-sm font-medium">Full name<input className={input + ' mt-1'} value={form.name} onChange={set('name')} /></label>
+        <label className="block text-sm font-medium">Email<input type="email" className={input + ' mt-1'} value={form.email} onChange={set('email')} /></label>
+        <label className="block text-sm font-medium">New password<input type="password" placeholder="Leave blank to keep current" className={input + ' mt-1'} value={form.password} onChange={set('password')} /></label>
+        <button onClick={() => setSaved(true)} className="px-5 py-2 rounded-lg bg-amber-400 text-neutral-900 font-bold border-2 border-neutral-900">Save changes</button>
+        {saved && <p role="status" className="text-green-700 dark:text-green-400 font-medium">Changes saved.</p>}
+      </div>
+    </Card>
+  );
+}
+
+/* ---------- layout ---------- */
+function Header({ onMenu }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <header className="sticky top-0 z-20 flex items-center justify-between bg-amber-50 dark:bg-neutral-950 border-b-2 border-neutral-900 dark:border-amber-400 px-4 h-16">
+      <button onClick={onMenu} aria-label="Toggle menu" className="md:hidden text-2xl">☰</button>
+      <div className="font-semibold hidden md:block">Welcome back, Ahmed</div>
+      <div className="relative ml-auto">
+        <button onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Notifications"
+          className="relative w-10 h-10 rounded-full border-2 border-neutral-900 dark:border-amber-400 text-lg">
+          🔔<span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-5 h-5 grid place-items-center">3</span>
+        </button>
+        {open && (
+          <div className="absolute right-0 mt-2 w-72 max-w-[85vw] rounded-xl border-2 border-neutral-900 dark:border-amber-400 bg-white dark:bg-neutral-900 shadow-lg">
+            <div className="px-4 py-2 font-semibold border-b border-neutral-200 dark:border-neutral-700">Recent activity</div>
+            {activity.slice(0, 3).map((a, i) => <div key={i} className="px-4 py-3 text-sm border-b last:border-0 border-neutral-200 dark:border-neutral-700">{a}</div>)}
+          </div>
+        )}
+      </div>
+    </header>
+  );
+}
+
+function Sidebar({ open, close }) {
+  const link = 'block px-4 py-3 rounded-lg font-medium hover:bg-neutral-800';
+  const active = 'bg-amber-400 text-neutral-900 hover:bg-amber-400';
+  const items = [['/overview', 'Overview'], ['/projects', 'Projects'], ['/profile', 'Profile settings']];
+  return (
+    <>
+      {open && <div onClick={close} className="fixed inset-0 bg-black/50 z-30 md:hidden"></div>}
+      <aside className={'fixed md:static z-40 inset-y-0 left-0 w-60 bg-black text-amber-50 p-4 transition-transform md:translate-x-0 ' + (open ? 'translate-x-0' : '-translate-x-full')}>
+        <div className="text-2xl font-bold mb-6 px-2" style={{ fontFamily: 'Georgia, serif' }}>Freelance HQ</div>
+        <nav className="space-y-1">
+          {items.map(([to, label]) => (
+            <NavLink key={to} to={to} className={link} activeClassName={active} onClick={close}>{label}</NavLink>
+          ))}
+        </nav>
+      </aside>
+    </>
+  );
+}
+
+function App() {
+  const [menu, setMenu] = useState(false);
+  return (
+    <HashRouter>
+      <div className="min-h-screen md:flex">
+        <Sidebar open={menu} close={() => setMenu(false)} />
+        <div className="flex-1 min-w-0">
+          <Header onMenu={() => setMenu(true)} />
+          <main className="p-4 md:p-6">
+            <Switch>
+              <Route path="/overview" component={Overview} />
+              <Route path="/projects" component={Projects} />
+              <Route path="/profile" component={Profile} />
+              <Redirect to="/overview" />
+            </Switch>
+          </main>
+        </div>
+      </div>
+    </HashRouter>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
